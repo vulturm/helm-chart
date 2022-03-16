@@ -1,11 +1,15 @@
 {{- if and .Values.scheduler.enabled .Values.webUI.ingress.enabled -}}
 ---
-apiVersion: extensions/v1beta1
+{{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+apiVersion: networking.k8s.io/v1
+{{- else -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- end }}
 kind: Ingress
 metadata:
   name: {{ template "dask.fullname" . }}-scheduler
   labels:
-    app: {{ template "dask.fullname" . }}-scheduler
+    app: "{{ template "dask.fullname" . }}-scheduler"
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
@@ -24,7 +28,17 @@ spec:
     {{- end }}
     http:
       paths:
-      - backend:
-          serviceName: {{ template "dask.fullname" . }}-scheduler
-          servicePort: {{ .Values.webUI.servicePort }}
+      - path: /
+        {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+        pathType: {{ .Values.jupyter.ingress.pathType }}
+        backend:
+          service:
+            name: {{ template "dask.fullname" . }}-jupyter
+            port:
+              number: {{ .Values.jupyter.servicePort }}
+        {{- else }}
+        backend:
+          serviceName: {{ template "dask.fullname" . }}-jupyter
+          servicePort: {{ .Values.jupyter.servicePort }}
+        {{- end }}
 {{- end -}}
